@@ -1,6 +1,8 @@
 # PineOsint
 know everyone
 
+#Command
+
 ```bash
 pkg update && pkg upgrade -y
 pkg install git python -y
@@ -9,3 +11,7 @@ git clone https://github.com/Kevin-gg-ctrl/PineOsint
 cd PineOsint
 python PineOsint.py
 ```
+
+#Owner
+
+PineDorX
