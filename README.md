@@ -1,7 +1,7 @@
 # PineOsint
 know everyone
 
-#Command
+# Command
 
 ```bash
 pkg update && pkg upgrade -y
@@ -12,6 +12,6 @@ cd PineOsint
 python PineOsint.py
 ```
 
-#Owner
+# Owner
 
 PineDorX
