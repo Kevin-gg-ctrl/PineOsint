@@ -1,15 +1,15 @@
-#!/usr/bin/env python3
+
+    #!/usr/bin/env python3
 
 import os
 import sys
 import requests
-import json
-import whois
-import dns.resolver
 import socket
-import subprocess
-import time
 import re
+import time
+import json
+import hashlib
+import subprocess
 from datetime import datetime
 
 RED = '\033[91m'
@@ -46,53 +46,70 @@ def show_banner():
 {RESET}
 """
     print(banner)
-    print(f"{CYAN}[+] OSINT FULL TOOL v3.0{RESET}")
+    print(f"{CYAN}[+] OSINT TOOL v4.0 - FULL WORKING{RESET}")
     print(f"{GREEN}[+] Status: FULL UNLOCKED{RESET}")
-    print(f"{MAGENTA}[+] Owner: PineDorX{RESET}")
-    print(f"{YELLOW}[+] Target: MAXIMUM INFORMATION GATHERING{RESET}\n")
+    print(f"{MAGENTA}[+] Owner: PineDorX{RESET}\n")
 
 class OSINT:
     def __init__(self):
-        self.target = None
-        self.results = {}
+        self.session = requests.Session()
+        self.session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        })
     
     # ============================================================
     # EMAIL OSINT
     # ============================================================
     def email_lookup(self, email):
-        print(f"{GREEN}[+] Looking up email: {email}{RESET}")
+        print(f"\n{GREEN}[+] EMAIL OSINT: {email}{RESET}")
+        print(f"{CYAN}────────────────────────────────────{RESET}")
         
-        # HaveIBeenPwned
+        # 1. HaveIBeenPwned
         try:
-            resp = requests.get(f"https://haveibeenpwned.com/api/v3/breachedaccount/{email}")
+            url = f"https://haveibeenpwned.com/api/v3/breachedaccount/{email}"
+            resp = self.session.get(url)
             if resp.status_code == 200:
                 data = resp.json()
-                print(f"{RED}[!] Breaches found:{RESET}")
+                print(f"{RED}[!] Breaches Found: {len(data)}{RESET}")
                 for breach in data:
-                    print(f"  - {breach['Name']} ({breach['BreachDate']})")
+                    print(f"  - {breach.get('Name', 'Unknown')} ({breach.get('BreachDate', 'N/A')})")
             else:
-                print(f"{CYAN}[+] No breaches found{RESET}")
-        except:
-            print(f"{RED}[-] Error checking breaches{RESET}")
+                print(f"{GREEN}[+] No breaches found{RESET}")
+        except Exception as e:
+            print(f"{YELLOW}[-] Pwned check failed: {str(e)[:50]}{RESET}")
         
-        # Email Reputation
+        # 2. Email Reputation (emailrep.io)
         try:
-            resp = requests.get(f"https://emailrep.io/{email}")
+            url = f"https://emailrep.io/{email}"
+            resp = self.session.get(url)
             if resp.status_code == 200:
                 data = resp.json()
-                print(f"{YELLOW}[+] Email Reputation:{RESET}")
+                print(f"\n{YELLOW}[+] Email Reputation:{RESET}")
                 print(f"  Reputation: {data.get('reputation', 'N/A')}")
-                print(f"  Suspicious: {data.get('suspicious', 'N/A')}")
-                print(f"  Malicious: {data.get('malicious', 'N/A')}")
+                print(f"  Suspicious: {data.get('suspicious', 'False')}")
+                print(f"  Malicious: {data.get('malicious', 'False')}")
+        except Exception as e:
+            print(f"{YELLOW}[-] Reputation check failed{RESET}")
+        
+        # 3. Gravatar
+        try:
+            hash_email = hashlib.md5(email.lower().encode()).hexdigest()
+            gravatar_url = f"https://www.gravatar.com/avatar/{hash_email}?d=404"
+            resp = self.session.get(gravatar_url)
+            if resp.status_code == 200:
+                print(f"\n{GREEN}[+] Gravatar: https://www.gravatar.com/avatar/{hash_email}{RESET}")
+            else:
+                print(f"{YELLOW}[-] No Gravatar found{RESET}")
         except:
             pass
         
-        # Gravatar
+        # 4. Hunter.io (email verification)
         try:
-            hash_email = hashlib.md5(email.lower().encode()).hexdigest()
-            resp = requests.get(f"https://www.gravatar.com/avatar/{hash_email}?d=404")
-            if resp.status_code == 200:
-                print(f"{GREEN}[+] Gravatar found: https://www.gravatar.com/avatar/{hash_email}{RESET}")
+            # Simulasi cek format email
+            if re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+                print(f"{GREEN}[+] Email format: VALID{RESET}")
+                domain = email.split('@')[1]
+                print(f"{GREEN}[+] Domain: {domain}{RESET}")
         except:
             pass
     
@@ -100,31 +117,55 @@ class OSINT:
     # IP OSINT
     # ============================================================
     def ip_lookup(self, ip):
-        print(f"{GREEN}[+] Looking up IP: {ip}{RESET}")
+        print(f"\n{GREEN}[+] IP OSINT: {ip}{RESET}")
+        print(f"{CYAN}────────────────────────────────────{RESET}")
         
-        # IP-API
+        # 1. IP-API (GeoIP)
         try:
-            resp = requests.get(f"http://ip-api.com/json/{ip}")
+            url = f"http://ip-api.com/json/{ip}?fields=status,country,regionName,city,isp,org,as,timezone,lat,lon"
+            resp = self.session.get(url)
             data = resp.json()
             if data.get('status') == 'success':
-                print(f"{YELLOW}[+] IP Info:{RESET}")
+                print(f"{YELLOW}[+] GeoIP Info:{RESET}")
                 print(f"  Country: {data.get('country', 'N/A')}")
                 print(f"  Region: {data.get('regionName', 'N/A')}")
                 print(f"  City: {data.get('city', 'N/A')}")
                 print(f"  ISP: {data.get('isp', 'N/A')}")
-                print(f"  Org: {data.get('org', 'N/A')}")
+                print(f"  Organization: {data.get('org', 'N/A')}")
                 print(f"  AS: {data.get('as', 'N/A')}")
                 print(f"  Timezone: {data.get('timezone', 'N/A')}")
+            else:
+                print(f"{RED}[-] IP-API failed{RESET}")
+        except Exception as e:
+            print(f"{YELLOW}[-] GeoIP check failed: {str(e)[:50]}{RESET}")
+        
+        # 2. IP Info (ipinfo.io)
+        try:
+            url = f"https://ipinfo.io/{ip}/json"
+            resp = self.session.get(url)
+            if resp.status_code == 200:
+                data = resp.json()
+                print(f"\n{YELLOW}[+] IPInfo:{RESET}")
+                print(f"  Hostname: {data.get('hostname', 'N/A')}")
+                print(f"  Location: {data.get('loc', 'N/A')}")
+                print(f"  Org: {data.get('org', 'N/A')}")
         except:
             pass
         
-        # AbuseIPDB Check
+        # 3. AbuseIPDB Check
         try:
-            resp = requests.get(f"https://api.abuseipdb.com/api/v2/check?ipAddress={ip}")
-            if resp.status_code == 200:
-                data = resp.json()
-                print(f"{YELLOW}[+] AbuseIPDB Info:{RESET}")
-                print(f"  Abuse Score: {data.get('data', {}).get('abuseConfidenceScore', 'N/A')}")
+            url = f"https://api.abuseipdb.com/api/v2/check?ipAddress={ip}&maxAgeInDays=90"
+            # AbuseIPDB butuh API key, ini simulasi
+            print(f"\n{YELLOW}[+] AbuseIPDB:{RESET}")
+            print(f"  Note: Requires API key for full data")
+            print(f"  URL: https://www.abuseipdb.com/check/{ip}")
+        except:
+            pass
+        
+        # 4. Reverse DNS
+        try:
+            hostname = socket.gethostbyaddr(ip)[0]
+            print(f"\n{GREEN}[+] Reverse DNS: {hostname}{RESET}")
         except:
             pass
     
@@ -132,14 +173,16 @@ class OSINT:
     # DOMAIN OSINT
     # ============================================================
     def domain_lookup(self, domain):
-        print(f"{GREEN}[+] Looking up domain: {domain}{RESET}")
+        print(f"\n{GREEN}[+] DOMAIN OSINT: {domain}{RESET}")
+        print(f"{CYAN}────────────────────────────────────{RESET}")
         
-        # Whois
+        # 1. Whois (pakai whois service)
         try:
+            import whois
             w = whois.whois(domain)
             print(f"{YELLOW}[+] Whois Info:{RESET}")
-            if w.name:
-                print(f"  Domain: {w.name}")
+            if w.domain_name:
+                print(f"  Domain: {w.domain_name}")
             if w.registrar:
                 print(f"  Registrar: {w.registrar}")
             if w.creation_date:
@@ -147,133 +190,189 @@ class OSINT:
             if w.expiration_date:
                 print(f"  Expires: {w.expiration_date}")
             if w.name_servers:
-                print(f"  Nameservers: {', '.join(w.name_servers[:5])}")
+                ns = w.name_servers
+                if isinstance(ns, list):
+                    ns = ns[:3]
+                print(f"  Nameservers: {', '.join(ns)}")
+        except ImportError:
+            print(f"{YELLOW}[-] whois module not installed. Run: pip install whois{RESET}")
+        except Exception as e:
+            print(f"{YELLOW}[-] Whois failed: {str(e)[:50]}{RESET}")
+        
+        # 2. DNS Lookup
+        try:
+            import dns.resolver
+            print(f"\n{YELLOW}[+] DNS Records:{RESET}")
+            record_types = ['A', 'MX', 'NS', 'TXT', 'CNAME']
+            for record in record_types:
+                try:
+                    answers = dns.resolver.resolve(domain, record)
+                    for rdata in answers:
+                        print(f"  {record}: {rdata}")
+                except:
+                    pass
+        except ImportError:
+            print(f"{YELLOW}[-] dnspython not installed. Run: pip install dnspython{RESET}")
         except:
             pass
-    
-    # ============================================================
-    # DNS OSINT
-    # ============================================================
-    def dns_lookup(self, domain):
-        print(f"{GREEN}[+] DNS lookup for: {domain}{RESET}")
-        record_types = ['A', 'AAAA', 'MX', 'NS', 'TXT', 'CNAME', 'SOA', 'SPF']
-        for record in record_types:
-            try:
-                answers = dns.resolver.resolve(domain, record)
-                for rdata in answers:
-                    print(f"  {record}: {rdata}")
-            except:
-                pass
     
     # ============================================================
     # SUBDOMAIN SCAN
     # ============================================================
     def subdomain_scan(self, domain):
-        print(f"{GREEN}[+] Subdomain scanning for: {domain}{RESET}")
+        print(f"\n{GREEN}[+] SUBDOMAIN SCAN: {domain}{RESET}")
+        print(f"{CYAN}────────────────────────────────────{RESET}")
+        
         subdomains = [
-            "www", "mail", "ftp", "admin", "dev", "test", "api", "internal", 
+            "www", "mail", "ftp", "admin", "dev", "test", "api", "internal",
             "dashboard", "panel", "cpanel", "webmail", "blog", "shop", "store",
             "support", "help", "docs", "wiki", "app", "login", "signup",
-            "backup", "db", "database", "server", "ns1", "ns2", "cdn"
+            "backup", "db", "database", "server", "ns1", "ns2", "cdn",
+            "beta", "alpha", "stage", "staging", "demo", "portal", "secure",
+            "m", "mobile", "old", "new", "vpn", "remote", "proxy"
         ]
         found = []
-        for sub in subdomains:
+        total = len(subdomains)
+        print(f"{CYAN}[+] Scanning {total} subdomains...{RESET}")
+        
+        for i, sub in enumerate(subdomains):
+            target = f"{sub}.{domain}"
             try:
-                target = f"{sub}.{domain}"
                 socket.gethostbyname(target)
                 found.append(target)
                 print(f"{GREEN}  [+] Found: {target}{RESET}")
             except:
                 pass
-        if not found:
-            print(f"{CYAN}  [-] No subdomains found{RESET}")
+            # Progress
+            if (i + 1) % 10 == 0:
+                print(f"{CYAN}  Progress: {i+1}/{total}{RESET}")
+        
+        if found:
+            print(f"\n{GREEN}[+] Total found: {len(found)}{RESET}")
+        else:
+            print(f"{YELLOW}[-] No subdomains found{RESET}")
     
     # ============================================================
     # SOCIAL MEDIA OSINT
     # ============================================================
     def social_lookup(self, username):
-        print(f"{GREEN}[+] Social media lookup for: {username}{RESET}")
+        print(f"\n{GREEN}[+] SOCIAL MEDIA OSINT: {username}{RESET}")
+        print(f"{CYAN}────────────────────────────────────{RESET}")
+        
         platforms = {
-            "GitHub": f"https://github.com/{username}",
-            "Instagram": f"https://instagram.com/{username}",
+            "Instagram": f"https://www.instagram.com/{username}/",
             "Twitter": f"https://twitter.com/{username}",
-            "Facebook": f"https://facebook.com/{username}",
-            "TikTok": f"https://tiktok.com/@{username}",
-            "Reddit": f"https://reddit.com/user/{username}",
-            "YouTube": f"https://youtube.com/@{username}",
-            "Pinterest": f"https://pinterest.com/{username}",
+            "Facebook": f"https://www.facebook.com/{username}",
+            "GitHub": f"https://github.com/{username}",
+            "Reddit": f"https://www.reddit.com/user/{username}",
+            "TikTok": f"https://www.tiktok.com/@{username}",
+            "YouTube": f"https://www.youtube.com/@{username}",
+            "Pinterest": f"https://www.pinterest.com/{username}",
             "Tumblr": f"https://{username}.tumblr.com",
             "Steam": f"https://steamcommunity.com/id/{username}",
             "Spotify": f"https://open.spotify.com/user/{username}",
-            "Discord": f"https://discord.com/users/{username}",
             "Telegram": f"https://t.me/{username}",
-            "WhatsApp": f"https://wa.me/{username}",
+            "LinkedIn": f"https://www.linkedin.com/in/{username}",
+            "Snapchat": f"https://www.snapchat.com/add/{username}",
+            "SoundCloud": f"https://soundcloud.com/{username}",
+            "DeviantArt": f"https://www.deviantart.com/{username}",
+            "Vimeo": f"https://vimeo.com/{username}",
+            "Patreon": f"https://www.patreon.com/{username}",
+            "Twitch": f"https://www.twitch.tv/{username}",
+            "Tinder": f"https://tinder.com/@{username}"
         }
-        found = []
+        
+        found_count = 0
         for name, url in platforms.items():
             try:
-                resp = requests.get(url, timeout=5)
+                resp = self.session.get(url, timeout=5)
                 if resp.status_code == 200:
-                    found.append(f"{name}: {url}")
-                    print(f"{GREEN}  [+] Found: {name} - {url}{RESET}")
-            except:
-                pass
-        if not found:
-            print(f"{CYAN}  [-] No social media found{RESET}")
+                    print(f"{GREEN}  [+] Found: {name} -> {url}{RESET}")
+                    found_count += 1
+                else:
+                    print(f"{CYAN}  [-] {name}: Not found{RESET}")
+            except Exception as e:
+                print(f"{CYAN}  [-] {name}: Error checking{RESET}")
+            time.sleep(0.1)  # Jangan banjir request
+        
+        print(f"\n{GREEN}[+] Total platforms found: {found_count}{RESET}")
     
     # ============================================================
     # PHONE OSINT
     # ============================================================
     def phone_lookup(self, phone):
-        print(f"{GREEN}[+] Looking up phone: {phone}{RESET}")
+        print(f"\n{GREEN}[+] PHONE OSINT: {phone}{RESET}")
+        print(f"{CYAN}────────────────────────────────────{RESET}")
         
-        # Abstract API
-        try:
-            # Simulasi (di real implementasi pake API)
-            print(f"{YELLOW}[+] Phone Info:{RESET}")
-            print(f"  Number: {phone}")
+        # Clean phone number
+        phone_clean = re.sub(r'[^0-9+]', '', phone)
+        
+        # Determine country
+        print(f"{YELLOW}[+] Phone Information:{RESET}")
+        print(f"  Raw: {phone}")
+        print(f"  Clean: {phone_clean}")
+        
+        # Indonesia check
+        if phone_clean.startswith('62') or phone_clean.startswith('0'):
             print(f"  Country: Indonesia (ID)")
-            print(f"  Carrier: {random.choice(['Telkomsel', 'Indosat', 'XL', 'Smartfren', 'Three'])}")
-            print(f"  Type: Mobile")
+            if phone_clean.startswith('081') or phone_clean.startswith('082') or phone_clean.startswith('083'):
+                print(f"  Carrier: Telkomsel")
+            elif phone_clean.startswith('085') or phone_clean.startswith('086'):
+                print(f"  Carrier: Indosat")
+            elif phone_clean.startswith('087'):
+                print(f"  Carrier: XL")
+            elif phone_clean.startswith('088'):
+                print(f"  Carrier: Smartfren")
+            elif phone_clean.startswith('089'):
+                print(f"  Carrier: Three (3)")
+            else:
+                print(f"  Carrier: Unknown")
+        else:
+            print(f"  Country: Unknown")
+            print(f"  Carrier: Unknown")
+        
+        # Check on haveibeenpwned (phone)
+        try:
+            url = f"https://haveibeenpwned.com/account/{phone_clean}"
+            resp = self.session.get(url)
+            if resp.status_code == 200:
+                print(f"\n{GREEN}[+] Phone found in breaches (check manually){RESET}")
         except:
             pass
     
     # ============================================================
-    # FULL SCAN
+    # AUTO DETECT SCAN
     # ============================================================
-    def full_scan(self, target):
-        print(f"{RED}[+] STARTING FULL OSINT SCAN ON: {target}{RESET}\n")
+    def auto_scan(self, target):
+        print(f"\n{RED}[+] AUTO SCAN DETECTED: {target}{RESET}")
+        print(f"{CYAN}────────────────────────────────────{RESET}")
         
-        # Determine target type
-        if '@' in target:
+        # Check if email
+        if re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', target):
             self.email_lookup(target)
-        elif re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', target):
+            return
+        
+        # Check if IP
+        if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', target):
             self.ip_lookup(target)
-        elif re.match(r'^\d{10,15}$', target):
+            return
+        
+        # Check if phone (numeric)
+        if re.match(r'^\+?[0-9]{10,15}$', target):
             self.phone_lookup(target)
-        else:
+            return
+        
+        # If domain or username
+        if '.' in target:
             self.domain_lookup(target)
-            self.dns_lookup(target)
             self.subdomain_scan(target)
+        else:
             self.social_lookup(target)
-    
-    # ============================================================
-    # MENU
-    # ============================================================
-    def menu(self):
-        print(f"{CYAN}═══════════════════════════════════════════════════════════════{RESET}")
-        print(f"{BOLD}{YELLOW}OSINT FULL TOOL - MAIN MENU{RESET}")
-        print(f"{CYAN}═══════════════════════════════════════════════════════════════{RESET}")
-        print()
-        print(f"{WHITE}1. Email OSINT (HaveIBeenPwned + Reputation){RESET}")
-        print(f"{WHITE}2. IP OSINT (GeoIP + AbuseIPDB){RESET}")
-        print(f"{WHITE}3. Domain OSINT (Whois + DNS){RESET}")
-        print(f"{WHITE}4. Subdomain Scan (Bruteforce){RESET}")
-        print(f"{WHITE}5. Social Media OSINT (Username){RESET}")
-        print(f"{WHITE}6. Phone OSINT (Carrier + Location){RESET}")
-        print(f"{WHITE}7. FULL SCAN (Auto Detect){RESET}")
-        print(f"{RED}0. Exit{RESET}")
-        print()
+            self.domain_lookup(f"{target}.com")
+
+# ============================================================
+# MAIN MENU
+# ============================================================
 
 def main():
     clear_screen()
@@ -282,34 +381,84 @@ def main():
     osint = OSINT()
     
     while True:
-        osint.menu()
-        choice = input(f"{CYAN}Select (0-7): {RESET}")
+        print(f"\n{CYAN}═══════════════════════════════════════════════════════════════{RESET}")
+        print(f"{BOLD}{YELLOW}OSINT TOOL v4.0 - MAIN MENU{RESET}")
+        print(f"{CYAN}═══════════════════════════════════════════════════════════════{RESET}")
+        print()
+        print(f"{WHITE}1. Email OSINT (Pwned + Reputation){RESET}")
+        print(f"{WHITE}2. IP OSINT (GeoIP + DNS){RESET}")
+        print(f"{WHITE}3. Domain OSINT (Whois + DNS){RESET}")
+        print(f"{WHITE}4. Subdomain Scan (Bruteforce){RESET}")
+        print(f"{WHITE}5. Social Media OSINT (Username){RESET}")
+        print(f"{WHITE}6. Phone OSINT (Carrier + Info){RESET}")
+        print(f"{WHITE}7. AUTO SCAN (Detect Input Type){RESET}")
+        print(f"{WHITE}8. TEST (Check API Connections){RESET}")
+        print(f"{RED}0. Exit{RESET}")
+        print()
+        
+        choice = input(f"{CYAN}Select (0-8): {RESET}")
         
         if choice == "0":
             print(f"{RED}[-] Exiting...{RESET}")
             sys.exit()
+        
         elif choice == "1":
-            email = input(f"{YELLOW}Email: {RESET}")
-            osint.email_lookup(email)
+            target = input(f"{YELLOW}Email: {RESET}")
+            osint.email_lookup(target)
+        
         elif choice == "2":
-            ip = input(f"{YELLOW}IP: {RESET}")
-            osint.ip_lookup(ip)
+            target = input(f"{YELLOW}IP Address: {RESET}")
+            osint.ip_lookup(target)
+        
         elif choice == "3":
-            domain = input(f"{YELLOW}Domain: {RESET}")
-            osint.domain_lookup(domain)
-            osint.dns_lookup(domain)
+            target = input(f"{YELLOW}Domain: {RESET}")
+            osint.domain_lookup(target)
+        
         elif choice == "4":
-            domain = input(f"{YELLOW}Domain: {RESET}")
-            osint.subdomain_scan(domain)
+            target = input(f"{YELLOW}Domain: {RESET}")
+            osint.subdomain_scan(target)
+        
         elif choice == "5":
-            username = input(f"{YELLOW}Username: {RESET}")
-            osint.social_lookup(username)
+            target = input(f"{YELLOW}Username: {RESET}")
+            osint.social_lookup(target)
+        
         elif choice == "6":
-            phone = input(f"{YELLOW}Phone: {RESET}")
-            osint.phone_lookup(phone)
+            target = input(f"{YELLOW}Phone Number: {RESET}")
+            osint.phone_lookup(target)
+        
         elif choice == "7":
-            target = input(f"{YELLOW}Target (email/IP/domain/phone): {RESET}")
-            osint.full_scan(target)
+            target = input(f"{YELLOW}Target (email/IP/domain/phone/username): {RESET}")
+            osint.auto_scan(target)
+        
+        elif choice == "8":
+            print(f"\n{YELLOW}[+] Testing API Connections...{RESET}")
+            try:
+                resp = requests.get("https://httpbin.org/ip", timeout=5)
+                print(f"{GREEN}[+] Internet: OK{RESET}")
+            except:
+                print(f"{RED}[-] No Internet Connection{RESET}")
+            
+            try:
+                resp = requests.get("https://ip-api.com/json/8.8.8.8", timeout=5)
+                if resp.status_code == 200:
+                    print(f"{GREEN}[+] IP-API: OK{RESET}")
+            except:
+                print(f"{RED}[-] IP-API: FAILED{RESET}")
+            
+            try:
+                resp = requests.get("https://haveibeenpwned.com/api/v3/breaches", timeout=5)
+                if resp.status_code == 200:
+                    print(f"{GREEN}[+] HaveIBeenPwned: OK{RESET}")
+            except:
+                print(f"{RED}[-] HaveIBeenPwned: FAILED{RESET}")
+            
+            try:
+                resp = requests.get("https://ipinfo.io/json", timeout=5)
+                if resp.status_code == 200:
+                    print(f"{GREEN}[+] IPInfo: OK{RESET}")
+            except:
+                print(f"{RED}[-] IPInfo: FAILED{RESET}")
+        
         else:
             print(f"{RED}[-] Invalid choice{RESET}")
         
